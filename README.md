@@ -45,7 +45,7 @@
                 
                 ![1.png](Image%20Segmentation%20U-net%20f0b574dd914a46e1802c83d6ebbad9e8/1.png)
                 
-                                          (좌) Normalization 적용전 / (우) Normalization 적용후
+                (좌) Normalization 적용전 / (우) Normalization 적용후
                 
                 ---
                 
@@ -228,235 +228,24 @@
 
 ---
 
-- U-net 코드
-    
-    실제로 구현해보기 (모델 가져오기)
-    
-    @박민 확인해주세여 :)
-    
-    [U-net 실제 구현 코드](http://machinelearningkorea.com/2019/08/25/u-net-실제-구현-코드/)
-    
-    - Conv Block
-        
-        ![Untitled](Image%20Segmentation%20U-net%20f0b574dd914a46e1802c83d6ebbad9e8/Untitled%2010.png)
-        
-        ```python
-        """ Conv Block """
-        class ConvBlock(tf.keras.layers.Layer):
-            def __init__(self, n_filters):
-                super(ConvBlock, self).__init__()
-        
-                self.conv1 = Conv2D(n_filters, 3, padding='same')
-                self.conv2 = Conv2D(n_filters, 3, padding='same')
-        
-                self.bn1 = BatchNormalization()
-                self.bn2 = BatchNormalization()
-        
-                self.activation = Activation('relu')
-        
-            def call(self, inputs):
-                x = self.conv1(inputs)
-                x = self.bn1(x)
-                x = self.activation(x)
-        
-                x = self.conv2(x)
-                x = self.bn2(x)
-                x = self.activation(x)
-        
-                return x
-        ```
-        
-    - Encoder Block
-        
-        ![Untitled](Image%20Segmentation%20U-net%20f0b574dd914a46e1802c83d6ebbad9e8/Untitled%2011.png)
-        
-        ```python
-        """ Encoder Block """
-        class EncoderBlock(tf.keras.layers.Layer):
-            def __init__(self, n_filters):
-                super(EncoderBlock, self).__init__()
-        
-                self.conv_blk = ConvBlock(n_filters)
-                self.pool = MaxPooling2D((2,2))
-        
-            def call(self, inputs):
-                x = self.conv_blk(inputs)
-                p = self.pool(x)
-                return x, p
-        ```
-        
-    - Decoder Block
-        
-        ![Untitled](Image%20Segmentation%20U-net%20f0b574dd914a46e1802c83d6ebbad9e8/Untitled%2012.png)
-        
-        ```python
-        """ Decoder Block """
-        class DecoderBlock(tf.keras.layers.Layer):
-            def __init__(self, n_filters):
-                super(DecoderBlock, self).__init__()
-        
-                self.up = Conv2DTranspose(n_filters, (2,2), strides=2, padding='same')
-                self.conv_blk = ConvBlock(n_filters)
-        
-            def call(self, inputs, skip):
-                x = self.up(inputs)
-                x = Concatenate()([x, skip])
-                x = self.conv_blk(x)
-        
-                return x
-        ```
-        
-    - **U-net 전체적인 모델링 (*unet_model.py*)**
-        
-        ```python
-        # U-Net model
-        # coded by st.watermelon
-        
-        import tensorflow as tf
-        from tensorflow.keras.layers import Conv2D, MaxPooling2D, Conv2DTranspose
-        from tensorflow.keras.layers import Activation, BatchNormalization, Concatenate
-        
-        """ Conv Block """
-        class ConvBlock(tf.keras.layers.Layer):
-            def __init__(self, n_filters):
-                super(ConvBlock, self).__init__()
-        
-                self.conv1 = Conv2D(n_filters, 3, padding='same')
-                self.conv2 = Conv2D(n_filters, 3, padding='same')
-        
-                self.bn1 = BatchNormalization()
-                self.bn2 = BatchNormalization()
-        
-                self.activation = Activation('relu')
-        
-            def call(self, inputs):
-                x = self.conv1(inputs)
-                x = self.bn1(x)
-                x = self.activation(x)
-        
-                x = self.conv2(x)
-                x = self.bn2(x)
-                x = self.activation(x)
-        
-                return x
-        
-        """ Encoder Block """
-        class EncoderBlock(tf.keras.layers.Layer):
-            def __init__(self, n_filters):
-                super(EncoderBlock, self).__init__()
-        
-                self.conv_blk = ConvBlock(n_filters)
-                self.pool = MaxPooling2D((2,2))
-        
-            def call(self, inputs):
-                x = self.conv_blk(inputs)
-                p = self.pool(x)
-                return x, p
-        
-        """ Decoder Block """
-        class DecoderBlock(tf.keras.layers.Layer):
-            def __init__(self, n_filters):
-                super(DecoderBlock, self).__init__()
-        
-                self.up = Conv2DTranspose(n_filters, (2,2), strides=2, padding='same')
-                self.conv_blk = ConvBlock(n_filters)
-        
-            def call(self, inputs, skip):
-                x = self.up(inputs)
-                x = Concatenate()([x, skip])
-                x = self.conv_blk(x)
-        
-                return x
-        
-        """ U-Net Model """
-        class UNET(tf.keras.Model):
-            def __init__(self, n_classes):
-                super(UNET, self).__init__()
-        
-                # Encoder
-                self.e1 = EncoderBlock(64)
-                self.e2 = EncoderBlock(128)
-                self.e3 = EncoderBlock(256)
-                self.e4 = EncoderBlock(512)
-        
-                # Bridge
-                self.b = ConvBlock(1024)
-        
-                # Decoder
-                self.d1 = DecoderBlock(512)
-                self.d2 = DecoderBlock(256)
-                self.d3 = DecoderBlock(128)
-                self.d4 = DecoderBlock(64)
-        
-                # Outputs
-                if n_classes == 1:
-                    activation = 'sigmoid'
-                else:
-                    activation = 'softmax'
-        
-                self.outputs = Conv2D(n_classes, 1, padding='same', activation=activation)
-        
-            def call(self, inputs):
-                s1, p1 = self.e1(inputs)
-                s2, p2 = self.e2(p1)
-                s3, p3 = self.e3(p2)
-                s4, p4 = self.e4(p3)
-        
-                b = self.b(p4)
-        
-                d1 = self.d1(b, s4)
-                d2 = self.d2(d1, s3)
-                d3 = self.d3(d2, s2)
-                d4 = self.d4(d3, s1)
-        
-                outputs = self.outputs(d4)
-        
-                return outputs
-        ```
-        
-
----
-
 - 요약
     
     1) Preprocessing
     
-    - Overlap-tile strategy
-    - Mirroring Extrapolate
-    - Data Augumentaion
+        - Overlap-tile strategy
+        - Mirroring Extrapolate
+        - Data Augumentaion
     
     2) Training
     
-    - Contracting Path
-    - Bottle Neck
-    - Expanding Path
-    - Weight Loss
+        - Contracting Path
+        - Bottle Neck
+        - Expanding Path
+        - Weight Loss
     
     3) Output
     
-    ![images_minkyu4506_post_f2ecc5e0-0d5e-4677-a2d2-d0d40261e4a7_스크린샷 2021-08-30 오후 9.27.38.png](Image%20Segmentation%20U-net%20f0b574dd914a46e1802c83d6ebbad9e8/images_minkyu4506_post_f2ecc5e0-0d5e-4677-a2d2-d0d40261e4a7_%25EC%258A%25A4%25ED%2581%25AC%25EB%25A6%25B0%25EC%2583%25B7_2021-08-30_%25EC%2598%25A4%25ED%259B%2584_9.27.38.png)
-    
-    $$
-    Input( w*h*RGB ) \\→ Model \\→
-    Output( w*h*class )
-    $$
+        Input( w*h*RGB ) \\→ Model \\→ Output( w*h*class )
     
     **모델의 구조 이해했다면, Conv과정에서 Padding이 전혀 사용이 되지 않으므로, 
     모델의 출력 크기는 입력크기보다 작을 수 밖에 없다.**
-    
-
----
-
-- 참고 문헌
-    - 블로그
-        
-        [[논문리뷰]U-Net - 새내기 코드 여행](https://joungheekim.github.io/2020/09/28/paper-review/)
-        
-        [U-Net 논문 리뷰 - U-Net: Convolutional Networks for Biomedical Image Segmentation](https://medium.com/@msmapark2/u-net-%EB%85%BC%EB%AC%B8-%EB%A6%AC%EB%B7%B0-u-net-convolutional-networks-for-biomedical-image-segmentation-456d6901b28a)
-        
-    - 논문
-        
-        [https://arxiv.org/pdf/1505.04597.pdf](https://arxiv.org/pdf/1505.04597.pdf)
-        
-
----
