@@ -1,6 +1,7 @@
 # Image Segmentation : U-net
 
-![2.png](Image%20Segmentation%20U-net%20f0b574dd914a46e1802c83d6ebbad9e8/2.png)
+![Architecture](https://user-images.githubusercontent.com/101788136/225789020-3f40ccb0-60c8-4e6a-bfc1-0280fb9bc4d3.png)
+
 
 ---
 
